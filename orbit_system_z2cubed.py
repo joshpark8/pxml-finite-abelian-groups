@@ -1,34 +1,41 @@
 """
 orbit subcount stuff for G = Z_2^3
 
-G = Z_2^3 acts on finite set X, |X| = n
-orbits look like G/H for subgroups H
-since G = F_2^3 as a vector space, subgroups = subspaces:
-    order 8:  G itself           (1,  dim 3)
-    order 4:  7 planes H_j       (7,  dim 2)
-    order 2:  7 lines  K_m       (7,  dim 1)
-    order 1:  trivial {0}        (1,  dim 0)
+G acts on finite set X, |X| = n.
+orbits are G-isomorphic to G/H for subgroups H <= G, with |orbit| = [G:H].
 
-so orbit sizes are |G/H| = 8/|H|:
+subgroup lattice of Z_2^3:
+    order 8:  G                 (1 subgroup)
+    order 4:  H_1, ..., H_7     (7 index-2 subgroups)
+    order 2:  K_1, ..., K_7     (7 order-2 subgroups)
+    order 1:  {0}               (1 subgroup)
+
+orbit sizes = [G:H], so X decomposes as:
     size 1:  stab = G        -> a_1 copies    (fixed points)
     size 2:  stab = H_j      -> alpha^(2)_j   (7 types, j=1..7)
     size 4:  stab = K_m      -> alpha^(4)_m   (7 types, m=1..7)
-    size 8:  stab = {0}      -> a_8 copies     (free orbits)
+    size 8:  stab = {0}      -> a_8 copies    (free orbits)
 
-we know a_1, a_2 = sum alpha^(2)_j, a_4 = sum alpha^(4)_m, a_8.
-the 14 unknowns are alpha^(2)_1,...,alpha^(2)_7, alpha^(4)_1,...,alpha^(4)_7
+we know the totals a_1, a_2 = sum alpha^(2)_j, a_4 = sum alpha^(4)_m, a_8.
+the 14 unknowns are alpha^(2)_1,...,alpha^(2)_7, alpha^(4)_1,...,alpha^(4)_7.
 
-three families of equations in 14 unknowns:
-  (I)   t_i  = n - M_{K_i}   : transposition count for each e_i  (7 eqs)
-  (II)  c_j  = M_{H_j} - ... : reduced orbit count for each H_j  (7 eqs)
-  (III) f_j  = # size-4 orbits in H_j-restricted action           (7 eqs)
+three families of equations:
+  (I)   t_i = # 2-cycles of g_i acting on X, one equation per
+        nontrivial g_i in G.                                    (7 eqs)
+        NOTE: Z_2^3-specific. every nontrivial g here has order 2, so
+        cycle structure collapses to fixed points + transpositions.
+        for general abelian G, elements have higher order and this
+        block must record full cycle structure per element.
+  (II)  c_j = reduced H_j-orbit count on X                      (7 eqs)
+  (III) f_j = # size-2 H_j-orbits coming from size-4 G-orbits   (7 eqs)
 
-this gives us:
+rank summary:
   rank([T; M])  = 7   -> (I) and (II) alone underdetermined
   rank([M; F])  = 14  -> (II) and (III) together uniquely determine everything
 
-the null space of [T; M] is delta^(2) = -A * delta^(4), so transposition
-counts are redundant. the restricted size-4 orbit data breaks the degeneracy.
+null space of [T; M] is delta^(2) = -A * delta^(4), so cycle counts are
+redundant given (II). the restricted orbit data in (III) breaks the
+degeneracy.
 """
 
 from sage.all import GF, VectorSpace, matrix, QQ, identity_matrix
@@ -39,59 +46,63 @@ from sage.all import GF, VectorSpace, matrix, QQ, identity_matrix
 
 def build_group():
     """
-    build the group G = Z_2^3 and relevant information
-
+    build G = Z_2^3 (as an additive abelian group) and enumerate:
+      - its nontrivial elements
+      - its index-2 subgroups
 
     returns
     -------
-    elts : list of 7 nontrivial elements ordered by Sage
-    functionals : list of 7 nontrivial elements ordered by Sage
-    subs_H : list of lists of indices corresponding to elements in a subgroup
-        subs_H[j] = [m : e_m in H_j]
+    elts : list of 7 nontrivial elements of G, with stable indexing.
+    subs_H : list of 7 index-2 subgroups. each is a list of indices
+        m with elts[m] in that subgroup, so subs_H[j] = [m : e_m in H_j].
     """
+    # VectorSpace(GF(2), 3) is just a convenient realization of Z_2^3;
+    # only the additive group structure is used below.
+    # for a general finite abelian group, use AdditiveAbelianGroup([...])
+    # and G.subgroups() filtered by index.
     V = VectorSpace(GF(2), 3)
     elts = [v for v in V if not v.is_zero()]
 
-    functionals = [v for v in V if not v.is_zero()]
-
     subs_H = []
-    for f in functionals:
-        H = [m for m, e in enumerate(elts) if f.dot_product(e) == 0]
-        subs_H.append(H)
+    for H in V.subspaces(2):
+        members = [m for m, e in enumerate(elts) if e in H]
+        subs_H.append(members)
 
-    return elts, functionals, subs_H
-
-
-# ---- point-hyperplane incidence ----
+    return elts, subs_H
 
 
-def point_hyperplane_incidence(subs_H):
+# ---- subgroup incidence ----
+
+
+def incidence_matrix(subs_H):
     """
-    7x7 incidence matrix between nonzero points (1-subspaces) and
-    hyperplanes ((n-1)-subspaces) of F_2^3:
+    7x7 incidence matrix between order-2 subgroups <e_m> and index-2
+    subgroups H_j:
 
-        A[j, m] = 1 if e_m in H_j, else 0.
+        A[j, m] = 1 if e_m in H_j (equivalently <e_m> <= H_j), else 0.
 
-    properties:
-      - row sum = col sum = 2^(n-1) - 1 = 3
-          (hyperplane contains 2^(n-1) - 1 nonzero vectors;
-           by duality each nonzero vector lies in 2^(n-1) - 1 hyperplanes)
-      - det(A) != 0, so A is invertible over Q
-          (this is what makes the final system solvable)
+    rows = index-2 subgroups, cols = order-2 subgroups. these have equal
+    cardinalities here (both 7) because the subgroup lattice of a finite
+    abelian group is self-dual: # subgroups of order d = # subgroups of
+    index d.
 
-    small-case identity (n = 3 only, just sanity check):
-      - A^T A = 2I + J
-      - det(A) = -24
+    properties used below:
+      - row sum = col sum = 3 in Z_2^3.
+      - det(A) != 0, so A is invertible over Q; this is what makes the
+        final system solvable.
+
+    NOTE: the identity A^T A = 2I + J holds for Z_2^3 but does not
+    generalize. for general abelian G, the incidence matrix between
+    order-d and index-d subgroups will be rectangular in general, and
+    only square when sizes happen to coincide.
 
     parameters
     ----------
-    subs_H : list of 7 lists of indices
-        from build_group(), which elements belong to which H_j.
+    subs_H : list of 7 lists of indices, from build_group().
 
     returns
     -------
-    A : 7x7 matrix over QQ
-        the point-hyperplane incidence matrix.
+    A : 7x7 matrix over QQ.
     """
     return matrix(QQ, 7, 7, lambda j, m: 1 if m in subs_H[j] else 0)
 
@@ -101,19 +112,24 @@ def point_hyperplane_incidence(subs_H):
 
 def transposition_matrix(A):
     """
-    7x14 matrix T for transposition equations.
+    7x14 matrix T for the cycle-count equations of block (I).
 
-    t_i = # of 2-cycles when e_i acts on X
+    for each nontrivial g_i in G, t_i = # 2-cycles of g_i acting on X.
 
-    contributions per orbit type:
+    NOTE: Z_2^3-specific. every nontrivial g in Z_2^3 has order 2, so
+    its cycle structure on X is (fixed points) + (transpositions). for
+    general abelian G, block (I) must record full cycle structure per
+    element (e.g., 3-cycles for order-3 elements, etc.).
+
+    contributions per orbit type, under action of e_i:
       size 1 (stab G): e_i fixes the point -> 0
       size 2 (stab H_j):
         e_i in H_j -> fixes both -> 0
         e_i not in H_j -> swaps them -> 1
         coeff: 1 - A[j, i]
       size 4 (stab K_m):
-        m = i -> fixes all 4 -> 0
-        m != i -> two transpositions -> 2
+        m = i -> e_i fixes all 4 -> 0
+        m != i -> e_i acts as two transpositions -> 2
       size 8 (stab {0}): 4 transpositions -> absorbed into constant
 
     so: t_i = sum_j (1-A[j,i]) alpha^(2)_j + sum_{m!=i} 2 alpha^(4)_m + 4 a_8
@@ -121,7 +137,7 @@ def transposition_matrix(A):
     parameters
     ----------
     A : 7x7 matrix over QQ
-        point-hyperplane incidence matrix from point_hyperplane_incidence().
+        incidence matrix from incidence_matrix().
 
     returns
     -------
@@ -139,22 +155,22 @@ def transposition_matrix(A):
     return matrix(QQ, 7, 14, entry)
 
 
-# ---- block (II): order-4 subgroup orbit counts ----
+# ---- block (II): index-2 subgroup orbit counts ----
 
 
 def subgroup_orbit_matrix(A):
     """
-    7x14 matrix M for the H_j orbit count equations.
+    7x14 matrix M for the H_j-orbit count equations of block (II).
 
-    M_{H_j} = # of H_j-orbits. each G-orbit type contributes:
-      size 1: 1 (fixed)
+    M_{H_j} = # of H_j-orbits on X. each G-orbit type contributes:
+      size 1: 1 (H_j fixes it)
       size 2, stab H_k:
-        k = j -> H_j fixes both -> 2
-        k != j -> H_j acts transitively -> 1
+        k = j -> H_j fixes both points -> 2 orbits
+        k != j -> H_j acts transitively -> 1 orbit
       size 4, stab K_m:
-        e_m in H_j -> H_j-orbits of size 2 -> contributes 2
-        e_m not in H_j -> H_j acts freely -> contributes 1
-      size 8: H_j acts freely, 8/4 = 2 orbits
+        e_m in H_j -> H_j-orbit splits into 2 orbits of size 2
+        e_m not in H_j -> H_j acts freely -> 1 orbit
+      size 8: H_j acts freely, 8/|H_j| = 2 orbits
 
     after simplifying and pulling out knowns:
       c_j = alpha^(2)_j + (A * alpha^(4))_j
@@ -164,7 +180,6 @@ def subgroup_orbit_matrix(A):
     parameters
     ----------
     A : 7x7 matrix over QQ
-        point-hyperplane incidence matrix.
 
     returns
     -------
@@ -187,27 +202,27 @@ def subgroup_orbit_matrix(A):
 
 def restricted_4orbit_matrix(A):
     """
-    7x14 matrix F for the H_j-restricted size-4 orbit equations.
+    7x14 matrix F for the H_j-restricted size-4 orbit equations, block (III).
 
-    restrict G-action to H_j, count size-4 H_j-orbits.
-    this is the key thing that breaks the degeneracy.
+    restrict the G-action to H_j and count size-4 H_j-orbits on X.
+    this is the data that breaks the degeneracy of (I)+(II).
 
     contributions:
-      size 1/2 G-orbits: can't produce size-4 H_j-orbits -> 0
+      size 1/2 G-orbits: cannot produce size-4 H_j-orbits -> 0
       size 4 (stab K_m):
         e_m in H_j -> H_j-orbits have size 2 -> 0
         e_m not in H_j -> H_j acts freely -> 1 size-4 orbit
-      size 8: H_j acts freely -> 2 size-4 orbits (goes to constant)
+      size 8: H_j acts freely -> 2 size-4 orbits (absorbed into constant)
 
     so f_j = sum_{m : e_m not in H_j} alpha^(4)_m = ((J-A) alpha^(4))_j
 
     left block = 0, right block = J - A (complementary incidence:
-    point NOT in hyperplane)
+    <e_m> NOT contained in H_j).
 
     parameters
     ----------
     A : 7x7 matrix over QQ
-        point-hyperplane incidence matrix.
+        incidence matrix.
 
     returns
     -------
@@ -225,28 +240,26 @@ def restricted_4orbit_matrix(A):
     return matrix(QQ, 7, 14, entry)
 
 
-def print_group_data(elts, functionals, subs_H):
+def print_group_data(elts, subs_H):
     print("GROUP DATA: G = Z_2^3")
 
-    print("\nNonzero elements e_1, ..., e_7:")
+    print("\nNontrivial elements e_1, ..., e_7:")
     for i, e in enumerate(elts):
         print(f"  e_{i+1} = {tuple(e)}")
 
-    print("\nOrder-4 subgroups H_j (nontrivial elements):")
+    print("\nIndex-2 subgroups H_j (listed by their nontrivial elements):")
     for j in range(7):
         members = ", ".join(f"e_{m+1}" for m in subs_H[j])
-        coeffs = [int(x) for x in functionals[j]]
-        terms = "+".join(f"x_{k+1}" for k in range(3) if coeffs[k])
-        print(f"  H_{j+1} = ker({terms}) : {{ {members} }}")
+        print(f"  H_{j+1} = {{ 0, {members} }}")
 
 
 def main():
-    elts, functionals, subs_H = build_group()
-    A = point_hyperplane_incidence(subs_H)
+    elts, subs_H = build_group()
+    A = incidence_matrix(subs_H)
 
-    print_group_data(elts, functionals, subs_H)
+    print_group_data(elts, subs_H)
 
-    print("\nPoint-hyperplane incidence matrix A:")
+    print("\nIncidence matrix A (rows = H_j, cols = <e_m>):")
     print(A)
     print(f"\ndet(A) = {A.det()}")
 
@@ -344,9 +357,9 @@ Then:
     I7 = identity_matrix(QQ, 7)
     J7 = matrix(QQ, 7, 7, lambda i, j: 1)
 
-    # small-case identity: A^T A = 2I + J (n=3 only; any two distinct
-    # points lie in exactly 2^(n-2) = 2 common hyperplanes, and each
-    # point lies in 2^(n-1) - 1 = 3 hyperplanes)
+    # Z_2^3-specific sanity check (does NOT generalize):
+    # any two distinct order-2 subgroups lie together in exactly 2 index-2
+    # subgroups, and each order-2 subgroup lies in 3 index-2 subgroups.
     assert A.transpose() * A == 2 * I7 + J7, "A^T A != 2I + J"
     print("Success")
 
