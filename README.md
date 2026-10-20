@@ -16,7 +16,7 @@ The answer: not in general. Interested readers can read our [preprint](https://a
 
 ## Purpose
 
-Scripts in this repository served many purposes throughout our research, but were primarily used for counting orbits of finite abelian $G$-sets and testing various conjectures during the project.
+Scripts in this repository served many purposes throughout our research, but were primarily used for counting orbits of finite abelian $G$-sets for varous groups $G$ and testing conjectures during the course of the project.
 
 ## Status
 
