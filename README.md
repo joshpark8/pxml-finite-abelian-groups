@@ -10,7 +10,7 @@ Program Supervisor: Prof. Thomas Sinclair
 
 ## Our question
 
-Let $G$ be a finite abelian group of order $n$ acting on a finite set $X$. If $M_H$ is the number of orbits induced by the $H$-action on $X$ and $a_d$ is the number of orbits with cardinality $d$ in $X$, we ask: is knowledge of the families $(M_H)_{H\leq G}$ and $(a_d)_{d|n}$ sufficient to characterize $X$ up to isomorphism?
+Let $G$ be a finite abelian group of order $n$ acting on a finite set $X$. If $M_H$ is the number of orbits induced by the $H$-action on $X$ and $a_d$ is the number of orbits with cardinality $d$ in $X$, we ask: is knowledge of the families $(M\_H)\_{H\leq G}$ and $(a\_d)\_{d|n}$ sufficient to characterize $X$ up to isomorphism?
 
 The answer: not in general. Interested readers can read our [preprint](https://arxiv.org/abs/2610.16880) for the proof.
 
